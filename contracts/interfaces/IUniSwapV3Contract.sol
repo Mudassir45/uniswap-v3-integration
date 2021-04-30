@@ -49,4 +49,6 @@ interface IUniSwapV3Contract {
   ) external returns(uint256 amountOut);
 
   function approval(address token0, address token1, uint24 fee) external;
+
+  function approvalForNFTManager() external;
 }
