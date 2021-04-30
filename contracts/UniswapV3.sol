@@ -10,6 +10,9 @@ import "./interfaces/ISwapRouter.sol";
 import "./interfaces/IERC20.sol";
 import "./interfaces/IUniSwapV3Contract.sol";
 
+import "./libraries/TickMath.sol";
+import "./libraries/LiquidityAmounts.sol";
+
 contract UniSwapV3Contract is IUniSwapV3Contract {
   address internal constant UNISWAP_V3_FACTORY = 0x7046f9311663DB8B7cf218BC7B6F3f17B0Ea1047; // kovan
   address internal constant UNISWAP_V3_SWAP_ROUTER = 0xbBca0fFBFE60F60071630A8c80bb6253dC9D6023;
@@ -24,6 +27,10 @@ contract UniSwapV3Contract is IUniSwapV3Contract {
   
   IERC20 public token0;
   IERC20 public token1;
+
+  uint24 private constant DEFAULT_UNISWAP_FEE = 10000;
+  int24 private constant MIN_TICK = -880000;
+  int24 private constant MAX_TICK = 880000;
 
   constructor() {
     uniswapV3Factory = IUniswapV3Factory(UNISWAP_V3_FACTORY);
@@ -43,19 +50,41 @@ contract UniSwapV3Contract is IUniSwapV3Contract {
     success = true;
   }
 
-  function getPoolDetails() public view override returns(address _token0, address _token1, uint24 fee, int24 tickSpacing, uint128 maxLiquidityPerTick) {
+  function getPoolDetails() public view override returns(address _token0, address _token1, uint24 fee, int24 tickSpacing, uint128 maxLiquidityPerTick, uint160 sqrtPriceX96, int24 tick) {
     _token0 = pool.token0();
     _token1 = pool.token0();
     fee = pool.fee();
     tickSpacing = pool.tickSpacing();
     maxLiquidityPerTick = pool.maxLiquidityPerTick();
+    (sqrtPriceX96, tick,,,,,) = pool.slot0();
+  }
+
+  function calculateLiquidity(int24 tickLower, int24 tickUpper, uint256 amount0Desired, uint256 amount1Desired) external view returns(uint256 liquidity) {
+    (uint160 sqrtPriceX96,,,,,,) = pool.slot0();
+    uint160 sqrtRatioAX96 = TickMath.getSqrtRatioAtTick(tickLower);
+    uint160 sqrtRatioBX96 = TickMath.getSqrtRatioAtTick(tickUpper);
+
+            liquidity = LiquidityAmounts.getLiquidityForAmounts(
+                sqrtPriceX96,
+                sqrtRatioAX96,
+                sqrtRatioBX96,
+                amount0Desired,
+                amount1Desired
+            );
   }
 
   function getPair(address _token0, address _token1, uint24 _fee) public override view returns(address pair) {
     pair = uniswapV3Factory.getPool(_token0, _token1, _fee);
   }
 
+  function setNewPool(address _pool) external {
+    pool = IUniswapV3PoolActions(_pool);
+  }
+
   function initialLiquidityV3(addLiquidityV3Params calldata params) public override returns(uint256 tokenId, uint128 liquidity, uint256 amount0, uint256 amount1) {
+    token0.transferFrom(msg.sender, address(this), params._amount0Desired);
+    token1.transferFrom(msg.sender, address(this), params._amount1Desired);
+    
     (tokenId, liquidity, amount0, amount1) = positionManager.mint(
       INonfungiblePositionManager.MintParams({
         token0: params._token0,
@@ -116,11 +145,16 @@ contract UniSwapV3Contract is IUniSwapV3Contract {
         })
       );
   }
-  
+
   // Approve poolContract to spend two erc20 tokens
   function approval(address _token0, address _token1, uint24 _fee) public override {
       token0.approve(getPair(_token0, _token1, _fee), uint(-1));
       token1.approve(getPair(_token0, _token1, _fee), uint(-1));
+  }
+
+  function approvalForNFTManager() public override {
+    token0.approve(POSITION_MANAGER, uint(-1));
+    token1.approve(POSITION_MANAGER, uint(-1));
   }
 
   receive() external payable {
