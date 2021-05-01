@@ -52,7 +52,7 @@ contract UniSwapV3Contract is IUniSwapV3Contract {
 
   function getPoolDetails() public view override returns(address _token0, address _token1, uint24 fee, int24 tickSpacing, uint128 maxLiquidityPerTick, uint160 sqrtPriceX96, int24 tick) {
     _token0 = pool.token0();
-    _token1 = pool.token0();
+    _token1 = pool.token1();
     fee = pool.fee();
     tickSpacing = pool.tickSpacing();
     maxLiquidityPerTick = pool.maxLiquidityPerTick();
