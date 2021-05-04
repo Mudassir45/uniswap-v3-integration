@@ -110,6 +110,9 @@ contract UniSwapV3Contract is IUniSwapV3Contract {
         uint256 token1Min, 
         uint256 _deadline
     ) public override returns(uint128 liquidity, uint256 amount0, uint256 amount1) {
+      token0.transferFrom(msg.sender, address(this), token0In);
+      token1.transferFrom(msg.sender, address(this), token1In);
+      
     (liquidity, amount0, amount1) = positionManager.increaseLiquidity(
           INonfungiblePositionManager.IncreaseLiquidityParams({
             tokenId: _tokenId, 
@@ -132,6 +135,8 @@ contract UniSwapV3Contract is IUniSwapV3Contract {
         uint256 _amountOutMinimum,
         uint160 _sqrtPriceLimitX96
   ) public override returns(uint256 amountOut) {
+    IERC20(_tokenIn).transferFrom(msg.sender, address(this), _amountIn);
+
       amountOut = swapRouter.exactInputSingle(
         ISwapRouter.ExactInputSingleParams({
             tokenIn: _tokenIn,
@@ -146,10 +151,34 @@ contract UniSwapV3Contract is IUniSwapV3Contract {
       );
   }
 
+  function swapTokenWithPair(
+        bytes memory _path,
+        address _recipient,
+        uint256 _deadline,
+        uint256 _amountIn,
+        uint256 _amountOutMinimum,
+        address _tokenIn) external returns(uint256 amountOut) {
+    IERC20(_tokenIn).transferFrom(msg.sender, address(this), _amountIn);
+
+    amountOut = swapRouter.exactInput(
+      ISwapRouter.ExactInputParams({
+        path: _path,
+        recipient: _recipient,
+        deadline: _deadline,
+        amountIn: _amountIn,
+        amountOutMinimum: _amountOutMinimum
+      })
+    );
+  }
+
   // Approve poolContract to spend two erc20 tokens
   function approval(address _token0, address _token1, uint24 _fee) public override {
       token0.approve(getPair(_token0, _token1, _fee), uint(-1));
       token1.approve(getPair(_token0, _token1, _fee), uint(-1));
+  }
+
+  function approvalForSwap(address _tokenIn) external {
+    IERC20(_tokenIn).approve(UNISWAP_V3_SWAP_ROUTER, uint(-1));
   }
 
   function approvalForNFTManager() public override {

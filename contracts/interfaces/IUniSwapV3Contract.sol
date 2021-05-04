@@ -8,7 +8,7 @@ interface IUniSwapV3Contract {
 
     function initializePool(address _pool, uint160 sqrtPriceX96) external returns(bool success);
 
-    function getPoolDetails() external view returns(address token0, address token1, uint24 fee, int24 tickSpacing, uint128 maxLiquidityPerTick);
+    function getPoolDetails() external view returns(address _token0, address _token1, uint24 fee, int24 tickSpacing, uint128 maxLiquidityPerTick, uint160 sqrtPriceX96, int24 tick);
 
     function getPair(address _token0, address _token1, uint24 _fee) external view returns(address pair);
 
@@ -18,7 +18,7 @@ interface IUniSwapV3Contract {
         uint24 _fee;
         int24 _tickLower;
         int24 _tickUpper;
-        uint256 _amount0Desired;
+        uint256 _amount0Desired; // 5 = 5e18 => REMIX overflow
         uint256 _amount1Desired;
         uint256 _amount0Min;
         uint256 _amount1Min;
